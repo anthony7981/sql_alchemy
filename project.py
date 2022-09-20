@@ -1,15 +1,23 @@
 #En primer lugar, importamos las herramientas necesarias para trabajar
 import datetime
 import logging
+from turtle import st
 
 import pandas as pd
 import numpy as np
 from sqlalchemy import MetaData, Table, Column
 from sqlalchemy import String, Integer
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
 import psycopg2
 import requests
 from decouple import config
+
+
+
+
+
+
+
 """
 Guardamos en este comentario las columnas requeridas para guardar toda
 la información en un mismo dataframe (solo a modo de anotación):
@@ -76,7 +84,7 @@ para luego hacer la conversión.
 ################## MUSEOS ######################
 
 museums = pd.read_csv(f"museos/2022-septiembre/museos-{today.day}-{today.month}-{today.year}.csv")
-museums['telefono'] = str(museums.cod_area) + str(museums.telefono)
+museums['telefono'] = museums['cod_area'].astype(str) + museums['telefono'].astype(str)
 museums['subcategoria'].fillna('Museos', inplace=True)
 
 try:
@@ -85,7 +93,8 @@ try:
             'Cod_Loc',          'IdProvincia',       'IdDepartamento',
             'subcategoria',     'provincia',         'localidad',
             'nombre',           'direccion',         'CP',
-            'telefono',         'Mail',              'Web'
+            'telefono',         'Mail',              'Web',
+            'fuente'
         ]
     ].fillna('N/A').rename(columns={
         'Cod_Loc':              'cod_localidad',
@@ -93,7 +102,7 @@ try:
         'IdDepartamento':       'id_departamento',
         'subcategoria':         'categoría',
         'direccion':            'domicilio',
-        'cod_area':             'código postal',
+        'CP':                   'código postal',
         'telefono':             'número de teléfono',
         'Mail':                 'mail',
         'Web':                  'web'
@@ -116,7 +125,8 @@ except KeyError:
             'Cod_Loc',          'IdProvincia',       'IdDepartamento',
             'subcategoria',     'provincia',         'localidad',
             'nombre',           'direccion',         'CP',
-            'telefono',         'Mail',              'Web'
+            'telefono',         'Mail',              'Web',
+            'fuente'
         ]
     ].fillna('N/A').rename(columns={
         'Cod_Loc':           'cod_localidad',
@@ -124,7 +134,7 @@ except KeyError:
         'IdDepartamento':    'id_departamento',
         'subcategoria':      'categoría',
         'direccion':         'domicilio',
-        'cod_area':          'código postal',
+        'CP':                'código postal',
         'telefono':          'número de teléfono',
         'Mail':              'mail',
         'Web':               'web'
@@ -137,7 +147,7 @@ except KeyError:
 ################# CINES #################
 
 cinemas = pd.read_csv(f"cine/2022-septiembre/cine-{today.day}-{today.month}-{today.year}.csv")
-cinemas['Teléfono'] = str(cinemas.cod_area) + str(cinemas.Teléfono)
+cinemas['Teléfono'] = cinemas['cod_area'].astype(str) + cinemas['Teléfono'].astype(str)
 cinemas['Categoría'].fillna("Salas de cine", inplace=True)
 
 try:
@@ -146,7 +156,8 @@ try:
             'Cod_Loc',        'IdProvincia',     'IdDepartamento',
             'Categoría',      'Provincia',       'Localidad',
             'Nombre',         'Dirección',       'CP',
-            'Teléfono',       'Mail',            'Web'
+            'Teléfono',       'Mail',            'Web',
+            'Fuente'
         ]
     ].fillna('N/A').rename(columns={
         'Cod_Loc':            'cod_localidad',
@@ -160,7 +171,8 @@ try:
         'CP':                 'código postal',
         'Teléfono':           'número de teléfono',
         'Mail':               'mail',
-        'Web':                'web'
+        'Web':                'web',
+        'Fuente':             'fuente'
         }
     )
 
@@ -182,7 +194,8 @@ except KeyError:
             'Cod_Loc',        'IdProvincia',     'IdDepartamento',
             'Categoría',      'Provincia',       'Localidad',
             'Nombre',         'Dirección',       'CP',
-            'Teléfono',       'Mail',            'Web'
+            'Teléfono',       'Mail',            'Web',
+            'Fuente',
         ]
     ].fillna('N/A').rename(columns={
         'Cod_Loc':              'cod_localidad',
@@ -196,7 +209,8 @@ except KeyError:
         'CP':                   'código postal',
         'Teléfono':             'número de teléfono',
         'Mail':                 'mail',
-        'Web':                  'web'
+        'Web':                  'web',
+        'Fuente':               'fuente'
         }
     )
 
@@ -205,7 +219,7 @@ except KeyError:
 ################### LIBRERÍAS #########################
 
 libraries = pd.read_csv(f"bibliotecas/2022-septiembre/bibliotecas-{today.day}-{today.month}-{today.year}.csv")
-libraries['Teléfono'] = str(libraries.Cod_tel) + str(libraries.Teléfono)
+libraries['Teléfono'] = libraries['Cod_tel'].astype(str) + libraries['Teléfono'].astype(str)
 libraries['Categoría'].fillna("Bibliotecas Populares", inplace=True)
 
 try:
@@ -214,7 +228,8 @@ try:
             'Cod_Loc',	     'IdProvincia',    'IdDepartamento',	
             'Categoría',     'Provincia',	   'Localidad',	
             'Nombre', 	     'Domicilio',	   'CP',	
-            'Teléfono',	     'Mail',	       'Web'	
+            'Teléfono',	     'Mail',	       'Web',
+            'Fuente',	
         ]
     ].fillna('N/A').rename(columns={
         'Cod_Loc':           'cod_localidad',
@@ -228,7 +243,8 @@ try:
         'CP':                'código postal',
         'Teléfono':          'número de teléfono',
         'Mail':              'mail',
-        'Web':               'web'
+        'Web':               'web',
+        'Fuente':            'fuente'
     }
     )
 
@@ -312,37 +328,59 @@ reg_cinema['Provincia'] = np.array(provincias, dtype=str)
 reg_cinema['Pantallas'] = np.array(pantallas, dtype=np.int32)
 reg_cinema['Butacas'] = np.array(butacas, dtype=np.int32)
 reg_cinema['espacio_INCAA'] = np.array(incaa, dtype=np.int32)
-print(reg_cinema)
 
 
 
 ###################### REGISTRO POR CATEGORÍA ############################################
-###################### ESTA TABLA SE ENCUENTRA PENDIENTE POR TERMINAR ####################
 
 # En este caso, creamos el dataframe, pero necesitaremos añadirle
 # las columnas respectivas a las fuentes y a las provincias.
-# 
-# FALTANTES: las fuentes y provincias
 
-reg_category = pd.DataFrame(columns=['categoría', 'reg_cat'])
+reg_category = pd.DataFrame(columns=['categoría', 'regs_categoría'])
 
-reg_c = []
-reg_f = []
-reg_p = []
+# Establecemos las tres categorías de 'main' como filas de 'reg_category'.
 
 
 reg_category['categoría'] = main['categoría'].unique()
+
+
+# Creamos una lista vacía para luego obtener cuántos registros
+# existen en 'main' por cada categoría. Luego iteramos nuestra
+# consulta almacenada en grouped_cat, añadimos los valores a la
+# lista e ingresamos todo en 'reg_cat'.
+
+column_cat = []
 grouped_cat = main['categoría'].groupby(main['categoría'], as_index=True).count()
-
 for x in grouped_cat.iteritems():
-    reg_c.append(x[1])
-
-reg_category['reg_cat'] = np.array(reg_c, dtype=np.int32)
-
-
-    
+    column_cat.append(x[1])
+reg_category['regs_categoría'] = np.array(column_cat, dtype=np.int32)
 
 
+# Columnas de fuentes:
+#
+# Creamos un primer ciclo 'for' para establecer los valores
+# predeterminados de todas las fuentes.
+# El segundo ciclo 'for' encuentra el nombre de la categoría y
+# establece el valor de las fuentes registradas.
+
+# Nota: utilizamos '+=' porque podría darse el caso de que
+#       dos categorías provengan de la misma fuente.
+
+for x in list(main.groupby(['categoría', 'fuente']).size().sort_index().iteritems()):
+    reg_category[x[0][1]] = np.array([0, 0, 0], dtype=np.int32)
+
+for x in list(main.groupby(['categoría', 'fuente']).size().sort_index().iteritems()):
+    reg_category.loc[reg_category['categoría'] == x[0][0], [x[0][1]]] += x[1]
+
+
+# Columnas de provincias:
+# Realizamos el mismo procedimiento que con las fuentes.
+
+for x in list(main.groupby(['categoría', 'provincia']).size().sort_index().iteritems()):
+    reg_category[x[0][1]] = np.array([0, 0, 0], dtype=np.int32)
+
+for x in list(main.groupby(['categoría', 'provincia']).size().sort_index().iteritems()):
+    reg_category.loc[reg_category['categoría'] == x[0][0], [x[0][1]]] += x[1]
 
 
 
@@ -374,13 +412,32 @@ main_table = Table(
         Column('web', String(100))
     )
 
+
+
+
+
+
 reg_category_table = Table(
     'reg_category',
     metadata_obj,
     Column('categoría', String(40)),
     Column('regs_categoría', Integer),
-
 )
+# Nota: en esta tabla desconocemos exactamente el número
+#       de columnas que deberá tener. Por lo tanto,
+#       realizamos las iteraciones correspondientes a
+#       'reg_category'.
+
+reg_f = main['fuente'].unique()
+for r in reg_f:
+    reg_category_table.r = Column(f'{r}', Integer)
+
+reg_p = main['provincia'].unique()
+for r in reg_p:
+    reg_category_table.r = Column(f'{r}', Integer)
+
+
+
 
 reg_cinema_table = Table(
     'reg_cinema',
@@ -397,7 +454,11 @@ with engine.begin() as conn:
 logging.info("Tablas creadas")
 
 
+
+# Por último, pasamos las tablas creadas a la base de datos con la función '.to_sql()'
+
 main.to_sql(name="main", con=engine.connect(), if_exists='replace')
 reg_cinema.to_sql(name='reg_cinema', con=engine.connect(), if_exists='replace')
+reg_category.to_sql(name='reg_category', con=engine.connect(), if_exists='replace')
 
-logging.info("Datos ingresados")
+logging.info("Datos ingresados correctamente")
