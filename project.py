@@ -1,13 +1,12 @@
 #En primer lugar, importamos las herramientas necesarias para trabajar
 import datetime
 import logging
-from turtle import st
 
 import pandas as pd
 import numpy as np
 from sqlalchemy import MetaData, Table, Column
 from sqlalchemy import String, Integer
-from sqlalchemy import create_engine, text
+from sqlalchemy import create_engine
 import psycopg2
 import requests
 from decouple import config
